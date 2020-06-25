@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>Additive Synthesis</title>
+    <link href="css/audio.css" rel="stylesheet" />
+    <style>
+      .slider {
+        width: 200px;
+      }
+
+      .left-label {
+        width: 100px;
+      }
+
+      .level-label {
+        width: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <span class="title">Additive Synthesis</span>
+    </div>
+    <div>
+      <input type="button" id="start" value="start" />
+      <input type="button" id="stop" value="stop" />
+    </div>
+    <div>
+      <canvas id="visualizer" width="1024" height="300"></canvas>
+    </div>
+    <div class="nav">
+      <a href="subtractive.html">&gt; Subtractive Synthesis</a><br/>
+      <a href="index.html">&gt; Index</a>
+    </div>
+  </body>
+
+  <script type="text/javascript">
+
+      var context = new AudioContext();
+
+      var oscNode, gainNode, mainGainNode;
+      var levelSlider = [];
+      var levelDisplay = [];
+      var freqDisplay = [];
+      var harmonicsCount = 6;
+
+      let send_buf = [];
+
+      const sync_sym = "1010";
+      const esc_sym = "0011";
+      const hsync_esc_sym = "001111";
+      const hsync_sym_regex = /10$/;
+      const sync_sym_regex = /1010/g;
+      const esc_sym_regex = /0011/g;
+
+      document.getElementById('start').addEventListener('click', start);
+      document.getElementById('stop').addEventListener('click', stop);
+
+      function write_bit(bit) {
+        send_buf.push(bit ? [1, 0] : [0, 1]);
+        send_buf.push([1, 1]);
+      }
+
+      function write_bits(data) {
+        let buf = data.replace(esc_sym_regex, esc_sym + esc_sym).replace(sync_sym_regex, esc_sym + sync_sym).replace(hsync_sym_regex, hsync_esc_sym) + sync_sym;
+        console.log(buf);
+        for (chr of buf) {
+          write_bit(chr == "1");
+        }
+      }
+
+      function write_checked_bits(data) {
+        let parity = data.split("").filter((c) => c == "1").length;
+        console.log((((parity/2)%2)?"1":"0") + ((parity%2)?"1":"0"), data);
+        write_bits((((parity/2)%2)?"1":"0") + ((parity%2)?"1":"0") + data);
+      }
+
+      function start() {
+        if (!oscNode) {
+          var frequency = 1500;
+          oscNode = [];
+          gainNode = [];
+
+          mainGainNode = context.createGain();
+          mainGainNode.gain.value = 1;
+          mainGainNode.connect(context.destination);
+
+          for (var i = 0; i < harmonicsCount; i++) {
+            oscNode[i] = context.createOscillator();
+            oscNode[i].frequency.value = frequency + (i * 500);
+
+            gainNode[i] = context.createGain();
+            gainNode[i].gain.value = 0;
+
+            oscNode[i].connect(gainNode[i]);
+            gainNode[i].connect(mainGainNode);
+            oscNode[i].start();
+          }
+        }
+        // setInterval(() => {
+        //   let d = send_buf.shift();
+        //   if (d)
+        //     updateGain(...d);
+        //   else
+        //     updateGain(0, 0);
+        // }, 25);
+
+        // write_checked_bits("0000");
+        for (let i = 0; i < 10; i++) {
+          send_buf.push([Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5]);
+        }
+        // send_buf.push([1, 0, 0, 0, 0, 0]);
+        // send_buf.push([0, 1, 0, 0, 0, 0]);
+        // send_buf.push([0, 0, 1, 0, 0, 0]);
+        // send_buf.push([0, 0, 0, 1, 0, 0]);
+        // send_buf.push([0, 0, 0, 0, 1, 0]);
+        // send_buf.push([0, 0, 0, 0, 0, 1]);
+        send_buf.push([0, 0, 0, 0, 0, 0]);
+        updateGain(send_buf);
+      }
+
+      function updateGain(data) {
+        if (gainNode) {
+          for (let d in data) {
+            for (let i in data[d]) {
+              gainNode[i].gain.setValueAtTime(data[d][i], context.currentTime + 0.5 + 0.05 * d);
+            }
+          }
+        
+          // gainNode[0].gain.setValueAtTime(gainNode[0].gain.value, context.currentTime);
+          // gainNode[0].gain.linearRampToValueAtTime(a * gainFactor, context.currentTime + 0.01);
+          // gainNode[1].gain.setValueAtTime(gainNode[1].gain.value, context.currentTime);
+          // gainNode[1].gain.linearRampToValueAtTime(b * gainFactor, context.currentTime + 0.01);
+          // gainNode[0].gain.setValueAtTime(a * gainFactor, context.currentTime + 0.5);
+          // gainNode[1].gain.setValueAtTime(b * gainFactor, context.currentTime + 0.5);
+        }
+      }
+
+  </script>
+</html>

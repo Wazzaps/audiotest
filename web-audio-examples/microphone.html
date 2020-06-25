@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>Microphone</title>
+    <link href="css/audio.css" rel="stylesheet" />
+    <style>
+      .label {
+        width: 80px;
+      }
+
+      .slider {
+        width: 200px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <span class="title">Microphone</span>
+    </div>
+    <div>
+      <div>
+        <span class="label">Gain</span>
+        <input type="range" id="gain-slider" class="slider" min="-20" max="20" step="1" value="0" />
+        <span id="gain-display" class="label">0 db</span>
+      </div>
+      <select id="vis-select">
+        <option value="Frequency">frequency</option>
+        <option value="Spectrogram">spectrogram</option>
+      </select><br/>
+      <canvas id="visualizer" width="1024" height="300"></canvas>
+    </div>
+    <div class="nav">
+      <a href="hearing.html">&gt; Hearing Test</a><br/>
+      <a href="index.html">&gt; Index</a>
+    </div>
+    <button onclick="start_mic()">Start</button><br>
+    <textarea id="result" col="12" style="font-family: monospace;"></textarea><br>
+    <button onclick="decode_text()">Decode</button><br>
+    <h3>Payloads:</h3>
+    <textarea id="payloads" col="12" style="font-family: monospace;"></textarea><br>
+    <button onclick="check_parities()">Check parities</button><br>
+    <h3>Checked Payloads:</h3>
+    <textarea id="checked_payloads" col="12" style="font-family: monospace;"></textarea>
+  </body>
+
+  <script type="text/javascript" src="js/audio-helper.js"></script>
+  <script type="text/javascript" src="js/frequency-visualizer.js"></script>
+  <script type="text/javascript" src="js/spectrogram-visualizer.js"></script>
+  <script type="text/javascript">
+
+    var start_mic = (function () {
+      var context = new AudioContext();
+      var visCanvas = document.getElementById('visualizer')
+      var visualizer = new App.FrequencyVisualizer(context, visCanvas);
+      var gain = 0;
+      var audioSource
+
+      navigator.getUserMedia =
+        navigator.getUserMedia ||
+        navigator.webkitGetUserMedia ||
+        navigator.mozGetUserMedia ||
+        navigator.msGetUserMedia;
+
+      if (navigator.getUserMedia) {
+        navigator.getUserMedia (
+          {
+            audio: true,
+            video: false
+          },
+          function (stream) {
+            audioSource = context.createMediaStreamSource(stream);
+            visualizer.acceptConnection(audioSource);
+          },
+          function (err) {
+             console.log('Error initializing user media stream: ' + err);
+          }
+        );
+      }
+
+      var gainDisplay = document.getElementById('gain-display');
+      var gainSlider = document.getElementById('gain-slider');
+
+      gainSlider.addEventListener('input', function () {
+        gain = parseFloat(gainSlider.value)
+        gainDisplay.textContent = gain + ' db';
+        visualizer.gain = gain;
+      });
+
+      var visSelect = document.getElementById('vis-select');
+      visSelect.addEventListener('change', changeVisualizer);
+
+      function changeVisualizer() {
+        visualizer.releaseConnection(audioSource);
+        visualizer.stop();
+        visualizer = new App[visSelect.value + "Visualizer"](context, visCanvas);
+        visualizer.gain = gain;
+        visualizer.acceptConnection(audioSource);
+      }
+    });
+
+  </script>
+</html>
